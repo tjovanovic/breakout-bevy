@@ -11,8 +11,13 @@ const PADDLE_MARGIN_X: f32 = 30.;
 const PADDLE_MAX_X: f32 = WINDOW_WIDTH / 2. - PADDLE_WIDTH / 2. - PADDLE_MARGIN_X;
 
 const BALL_RADIUS: f32 = 20.;
-const BALL_SPEED: f32 = 1500.;
-const BALL_INITIAL_ANGLE: f32 = -90.;
+const BALL_SPEED: f32 = 1000.;
+const BALL_INITIAL_ANGLE: f32 = -60.;
+
+const LEFT_WALL_EDGE: f32 = -WINDOW_WIDTH / 2.;
+const RIGHT_WALL_EDGE: f32 = WINDOW_WIDTH / 2.;
+const BOTTOM_WALL_EDGE: f32 = -WINDOW_HEIGHT / 2.;
+const TOP_WALL_EDGE: f32 = WINDOW_HEIGHT / 2.;
 
 fn main() {
     App::new()
@@ -31,6 +36,7 @@ fn main() {
                 paddle_input,
                 apply_velocity.after(paddle_input),
                 handle_paddle_edges.after(apply_velocity),
+                handle_ball_edges.after(apply_velocity),
             ),
         )
         .run();
@@ -104,6 +110,36 @@ fn handle_paddle_edges(mut query: Query<&mut Transform, With<Paddle>>) {
         return;
     };
     transform.translation.x = transform.translation.x.clamp(-PADDLE_MAX_X, PADDLE_MAX_X);
+}
+
+fn handle_ball_edges(mut query: Query<(&mut Transform, &mut Velocity), With<Ball>>) {
+    let Ok((mut transform, mut velocity)) = query.single_mut() else {
+        return;
+    };
+
+    let left_ball_edge = transform.translation.x - BALL_RADIUS;
+    if left_ball_edge <= LEFT_WALL_EDGE {
+        velocity.0.x = -velocity.0.x;
+        transform.translation.x = LEFT_WALL_EDGE + BALL_RADIUS;
+    }
+
+    let right_ball_edge = transform.translation.x + BALL_RADIUS;
+    if right_ball_edge >= RIGHT_WALL_EDGE {
+        velocity.0.x = -velocity.0.x;
+        transform.translation.x = RIGHT_WALL_EDGE - BALL_RADIUS;
+    }
+
+    let bottom_ball_edge = transform.translation.y - BALL_RADIUS;
+    if bottom_ball_edge <= BOTTOM_WALL_EDGE {
+        velocity.0.y = -velocity.0.y;
+        transform.translation.y = BOTTOM_WALL_EDGE + BALL_RADIUS;
+    }
+
+    let top_ball_edge = transform.translation.y + BALL_RADIUS;
+    if top_ball_edge >= TOP_WALL_EDGE {
+        velocity.0.y = -velocity.0.y;
+        transform.translation.y = TOP_WALL_EDGE - BALL_RADIUS;
+    }
 }
 
 #[derive(Component)]
