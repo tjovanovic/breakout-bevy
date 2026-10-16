@@ -3,21 +3,23 @@ use bevy::{color::palettes::css, prelude::*, window::WindowResolution};
 const WINDOW_WIDTH: f32 = 1920.;
 const WINDOW_HEIGHT: f32 = 1080.;
 
-const PADDLE_WIDTH: f32 = 100.;
+const PADDLE_WIDTH: f32 = 150.;
 const PADDLE_HEIGHT: f32 = 15.;
-const PADDLE_SPEED: f32 = 1000.;
+const PADDLE_SPEED: f32 = 500.;
 const PADDLE_MARGIN_Y: f32 = 50.;
 const PADDLE_MARGIN_X: f32 = 30.;
 const PADDLE_MAX_X: f32 = WINDOW_WIDTH / 2. - PADDLE_WIDTH / 2. - PADDLE_MARGIN_X;
 
-const BALL_RADIUS: f32 = 20.;
-const BALL_SPEED: f32 = 1000.;
-const BALL_INITIAL_ANGLE: f32 = -60.;
+const BALL_RADIUS: f32 = 15.;
+const BALL_SPEED: f32 = 500.;
+const BALL_INITIAL_ANGLE: f32 = -90.;
 
 const LEFT_WALL_EDGE: f32 = -WINDOW_WIDTH / 2.;
 const RIGHT_WALL_EDGE: f32 = WINDOW_WIDTH / 2.;
 const BOTTOM_WALL_EDGE: f32 = -WINDOW_HEIGHT / 2.;
 const TOP_WALL_EDGE: f32 = WINDOW_HEIGHT / 2.;
+
+const MAX_BOUNCE_ANGLE: f32 = 30.;
 
 fn main() {
     App::new()
@@ -37,6 +39,7 @@ fn main() {
                 apply_velocity.after(paddle_input),
                 handle_paddle_edges.after(apply_velocity),
                 handle_ball_edges.after(apply_velocity),
+                handle_paddle_ball_collision.after(apply_velocity),
             ),
         )
         .run();
@@ -139,6 +142,47 @@ fn handle_ball_edges(mut query: Query<(&mut Transform, &mut Velocity), With<Ball
     if top_ball_edge >= TOP_WALL_EDGE {
         velocity.0.y = -velocity.0.y;
         transform.translation.y = TOP_WALL_EDGE - BALL_RADIUS;
+    }
+}
+
+fn handle_paddle_ball_collision(
+    mut ball_query: Query<(&Transform, &mut Velocity), With<Ball>>,
+    paddle_query: Query<&Transform, (With<Paddle>, Without<Ball>)>,
+) {
+    let Ok((ball_transform, mut ball_velocity)) = ball_query.single_mut() else {
+        return;
+    };
+
+    let Ok(paddle_transform) = paddle_query.single() else {
+        return;
+    };
+
+    if ball_velocity.0.y >= 0. {
+        // as the ball can remain inside the paddle for a few frames after flip
+        // we only change the velocity if the ball is going down
+        // to ensure we only do it once
+        return;
+    }
+
+    let bottom_ball_edge = ball_transform.translation.y - BALL_RADIUS;
+    let top_ball_edge = ball_transform.translation.y + BALL_RADIUS;
+    let left_ball_edge = ball_transform.translation.x - BALL_RADIUS;
+    let right_ball_edge = ball_transform.translation.x + BALL_RADIUS;
+
+    let bottom_paddle_edge = paddle_transform.translation.y - PADDLE_HEIGHT / 2.;
+    let top_paddle_edge = paddle_transform.translation.y + PADDLE_HEIGHT / 2.;
+    let left_paddle_edge = paddle_transform.translation.x - PADDLE_WIDTH / 2.;
+    let right_paddle_edge = paddle_transform.translation.x + PADDLE_WIDTH / 2.;
+
+    let intersects_x = left_ball_edge <= right_paddle_edge && left_paddle_edge <= right_ball_edge;
+    let intersects_y = bottom_ball_edge <= top_paddle_edge && bottom_paddle_edge <= top_ball_edge;
+    if intersects_x && intersects_y {
+        let mut offset =
+            (ball_transform.translation.x - paddle_transform.translation.x) / (PADDLE_WIDTH / 2.);
+
+        offset = offset.clamp(-1., 1.);
+        let out_angle = offset.remap(-1., 1., 180. - MAX_BOUNCE_ANGLE, MAX_BOUNCE_ANGLE);
+        ball_velocity.0 = Vec2::from_angle(out_angle.to_radians()) * BALL_SPEED;
     }
 }
 
