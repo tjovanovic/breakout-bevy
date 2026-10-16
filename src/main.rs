@@ -1,4 +1,9 @@
-use bevy::{color::palettes::css, prelude::*, window::WindowResolution};
+use bevy::{
+    color::palettes::css,
+    math::bounding::{Aabb2d, BoundingCircle, IntersectsVolume},
+    prelude::*,
+    window::WindowResolution,
+};
 
 const WINDOW_WIDTH: f32 = 1920.;
 const WINDOW_HEIGHT: f32 = 1080.;
@@ -164,19 +169,14 @@ fn handle_paddle_ball_collision(
         return;
     }
 
-    let bottom_ball_edge = ball_transform.translation.y - BALL_RADIUS;
-    let top_ball_edge = ball_transform.translation.y + BALL_RADIUS;
-    let left_ball_edge = ball_transform.translation.x - BALL_RADIUS;
-    let right_ball_edge = ball_transform.translation.x + BALL_RADIUS;
+    let paddle = Aabb2d::new(
+        paddle_transform.translation.xy(),
+        vec2(PADDLE_WIDTH / 2., PADDLE_HEIGHT / 2.),
+    );
 
-    let bottom_paddle_edge = paddle_transform.translation.y - PADDLE_HEIGHT / 2.;
-    let top_paddle_edge = paddle_transform.translation.y + PADDLE_HEIGHT / 2.;
-    let left_paddle_edge = paddle_transform.translation.x - PADDLE_WIDTH / 2.;
-    let right_paddle_edge = paddle_transform.translation.x + PADDLE_WIDTH / 2.;
+    let ball = BoundingCircle::new(ball_transform.translation.xy(), BALL_RADIUS);
 
-    let intersects_x = left_ball_edge <= right_paddle_edge && left_paddle_edge <= right_ball_edge;
-    let intersects_y = bottom_ball_edge <= top_paddle_edge && bottom_paddle_edge <= top_ball_edge;
-    if intersects_x && intersects_y {
+    if ball.intersects(&paddle) {
         let mut offset =
             (ball_transform.translation.x - paddle_transform.translation.x) / (PADDLE_WIDTH / 2.);
 
