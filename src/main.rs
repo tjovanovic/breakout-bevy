@@ -10,13 +10,13 @@ const WINDOW_HEIGHT: f32 = 1080.;
 
 const PADDLE_WIDTH: f32 = 150.;
 const PADDLE_HEIGHT: f32 = 15.;
-const PADDLE_SPEED: f32 = 500.;
+const PADDLE_SPEED: f32 = 1500.;
 const PADDLE_MARGIN_Y: f32 = 50.;
 const PADDLE_MARGIN_X: f32 = 30.;
 const PADDLE_MAX_X: f32 = WINDOW_WIDTH / 2. - PADDLE_WIDTH / 2. - PADDLE_MARGIN_X;
 
 const BALL_RADIUS: f32 = 15.;
-const BALL_SPEED: f32 = 500.;
+const BALL_SPEED: f32 = 1500.;
 const BALL_INITIAL_ANGLE: f32 = -90.;
 
 const LEFT_WALL_EDGE: f32 = -WINDOW_WIDTH / 2.;
@@ -25,6 +25,15 @@ const BOTTOM_WALL_EDGE: f32 = -WINDOW_HEIGHT / 2.;
 const TOP_WALL_EDGE: f32 = WINDOW_HEIGHT / 2.;
 
 const MAX_BOUNCE_ANGLE: f32 = 30.;
+
+const BRICK_ROWS: u8 = 4;
+const BRICK_COLS: u8 = 10;
+const BRICK_Y_GAP: f32 = 20.;
+const BRICK_X_GAP: f32 = 30.;
+
+const BRICK_WIDTH: f32 =
+    (WINDOW_WIDTH - (BRICK_COLS as f32 + 1.) * BRICK_X_GAP) / (BRICK_COLS as f32);
+const BRICK_HEIGHT: f32 = 50.;
 
 fn main() {
     App::new()
@@ -37,6 +46,7 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup, setup)
+        .add_systems(Startup, setup_bricks)
         .add_systems(
             Update,
             (
@@ -81,6 +91,36 @@ fn setup(
         Transform::default(),
         Velocity(Vec2::from_angle(BALL_INITIAL_ANGLE.to_radians()) * BALL_SPEED),
     ));
+}
+
+fn setup_bricks(mut commands: Commands) {
+    for row in 0..BRICK_ROWS {
+        for col in 0..BRICK_COLS {
+            let row = row as f32;
+            let col = col as f32;
+            let brick_x = -WINDOW_WIDTH / 2.
+                + (col + 1.) * BRICK_X_GAP
+                + col * BRICK_WIDTH
+                + BRICK_WIDTH / 2.;
+            let brick_y = WINDOW_HEIGHT / 2.
+                - (row + 1.) * BRICK_Y_GAP
+                - row * BRICK_HEIGHT
+                - BRICK_HEIGHT / 2.;
+
+            commands.spawn((
+                Brick,
+                Sprite {
+                    custom_size: Some(Vec2::new(BRICK_WIDTH, BRICK_HEIGHT)),
+                    color: css::INDIAN_RED.into(),
+                    ..default()
+                },
+                Transform {
+                    translation: vec3(brick_x, brick_y, 0.),
+                    ..default()
+                },
+            ));
+        }
+    }
 }
 
 fn paddle_input(
@@ -194,3 +234,6 @@ struct Ball;
 
 #[derive(Component)]
 struct Velocity(Vec2);
+
+#[derive(Component)]
+struct Brick;
