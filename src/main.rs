@@ -41,6 +41,15 @@ const BRICK_HEIGHT: f32 = 50.;
 
 const BALL_ANGLE_CORRECTION_MARGIN: f32 = 1. / 18. * PI; // 10 degrees
 
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
+enum GameState {
+    #[default]
+    Countdown,
+    Playing,
+    GameOver,
+    Won,
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -51,8 +60,12 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems(Startup, setup)
-        .add_systems(Startup, setup_bricks)
+        .init_state::<GameState>()
+        .add_systems(Startup, (setup_camera, setup_bricks))
+        .add_systems(
+            OnEnter(GameState::Countdown),
+            (despawn_ball_and_paddle, spawn_ball_and_paddle).chain(),
+        )
         .add_systems(
             Update,
             (
@@ -71,12 +84,24 @@ fn main() {
         .run();
 }
 
-fn setup(
+fn setup_camera(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
+
+fn despawn_ball_and_paddle(
+    mut commands: Commands,
+    query: Query<Entity, Or<(With<Ball>, With<Paddle>)>>,
+) {
+    for entity in query {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn spawn_ball_and_paddle(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2d);
     commands.spawn((
         Paddle,
         Sprite {
