@@ -64,7 +64,10 @@ fn main() {
         .add_systems(Startup, (setup_camera, setup_bricks))
         .add_systems(
             OnEnter(GameState::Countdown),
-            (despawn_ball_and_paddle, spawn_ball_and_paddle).chain(),
+            (
+                (despawn_ball_and_paddle, spawn_ball_and_paddle).chain(),
+                start_game,
+            ),
         )
         .add_systems(
             Update,
@@ -79,13 +82,18 @@ fn main() {
                     .after(handle_ball_edges)
                     .after(handle_paddle_ball_collision)
                     .after(handle_brick_ball_collision),
-            ),
+            )
+                .run_if(in_state(GameState::Playing)),
         )
         .run();
 }
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
+}
+
+fn start_game(mut next_game_state: ResMut<NextState<GameState>>) {
+    next_game_state.set(GameState::Playing);
 }
 
 fn despawn_ball_and_paddle(
