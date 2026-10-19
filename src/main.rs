@@ -221,11 +221,6 @@ fn handle_brick_ball_collision(
             vec2(BRICK_WIDTH / 2., BRICK_HEIGHT / 2.),
         );
         if ball.intersects(&brick) {
-            println!(
-                "BALL {} -- {}",
-                ball_velocity.0.x, ball_transform.translation.x
-            );
-            println!("BRICK HIT {}", brick_transform.translation.x);
             commands.entity(brick_entity).despawn();
 
             let closest = brick.closest_point(ball.center);
@@ -289,13 +284,10 @@ fn correct_ball_angle(mut query: Query<&mut Velocity, With<Ball>>) {
     };
 
     let current_angle = velocity.0.to_angle();
-    let Vec2 { x: curr_x, y: _y } = velocity.0;
+    let Vec2 { x: curr_x, .. } = velocity.0;
 
     let deg_90 = PI / 2.;
-
-    if deg_90 - BALL_ANGLE_CORRECTION_MARGIN <= current_angle
-        && current_angle <= deg_90 + BALL_ANGLE_CORRECTION_MARGIN
-    {
+    if (deg_90 - current_angle).abs() <= BALL_ANGLE_CORRECTION_MARGIN {
         let new_angle = if curr_x >= 0. {
             deg_90 - BALL_ANGLE_CORRECTION_MARGIN
         } else {
@@ -304,9 +296,7 @@ fn correct_ball_angle(mut query: Query<&mut Velocity, With<Ball>>) {
         velocity.0 = Vec2::from_angle(new_angle) * BALL_SPEED;
     }
 
-    if -deg_90 - BALL_ANGLE_CORRECTION_MARGIN <= current_angle
-        && current_angle <= -deg_90 + BALL_ANGLE_CORRECTION_MARGIN
-    {
+    if (-deg_90 - current_angle).abs() <= BALL_ANGLE_CORRECTION_MARGIN {
         let new_angle = if curr_x >= 0. {
             -deg_90 + BALL_ANGLE_CORRECTION_MARGIN
         } else {
