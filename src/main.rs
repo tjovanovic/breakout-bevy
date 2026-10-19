@@ -7,6 +7,8 @@ use bevy::{
     window::WindowResolution,
 };
 
+use rand::RngExt;
+
 const WINDOW_WIDTH: f32 = 1920.;
 const WINDOW_HEIGHT: f32 = 1080.;
 
@@ -19,7 +21,7 @@ const PADDLE_MAX_X: f32 = WINDOW_WIDTH / 2. - PADDLE_WIDTH / 2. - PADDLE_MARGIN_
 
 const BALL_RADIUS: f32 = 15.;
 const BALL_SPEED: f32 = 300.;
-const BALL_INITIAL_ANGLE: f32 = -90.;
+const BALL_INITIAL_ANGLE_RANGE: (f32, f32) = (-120., -60.);
 
 const LEFT_WALL_EDGE: f32 = -WINDOW_WIDTH / 2.;
 const RIGHT_WALL_EDGE: f32 = WINDOW_WIDTH / 2.;
@@ -93,12 +95,16 @@ fn setup(
         Velocity(Vec2::ZERO),
     ));
 
+    let mut rng = rand::rng();
+    let ball_initial_angle =
+        rng.random_range(BALL_INITIAL_ANGLE_RANGE.0..=BALL_INITIAL_ANGLE_RANGE.1);
+
     commands.spawn((
         Ball,
         Mesh2d(meshes.add(Circle::new(BALL_RADIUS))),
         MeshMaterial2d(materials.add(ColorMaterial::from_color(css::SKY_BLUE))),
         Transform::default(),
-        Velocity(Vec2::from_angle(BALL_INITIAL_ANGLE.to_radians()) * BALL_SPEED),
+        Velocity(Vec2::from_angle(ball_initial_angle.to_radians()) * BALL_SPEED),
     ));
 }
 
