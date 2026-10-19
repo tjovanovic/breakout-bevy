@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{
     color::palettes::css,
     math::bounding::{Aabb2d, BoundingCircle, IntersectsVolume},
@@ -10,13 +12,13 @@ const WINDOW_HEIGHT: f32 = 1080.;
 
 const PADDLE_WIDTH: f32 = 150.;
 const PADDLE_HEIGHT: f32 = 15.;
-const PADDLE_SPEED: f32 = 1500.;
+const PADDLE_SPEED: f32 = 300.;
 const PADDLE_MARGIN_Y: f32 = 50.;
 const PADDLE_MARGIN_X: f32 = 30.;
 const PADDLE_MAX_X: f32 = WINDOW_WIDTH / 2. - PADDLE_WIDTH / 2. - PADDLE_MARGIN_X;
 
 const BALL_RADIUS: f32 = 15.;
-const BALL_SPEED: f32 = 1500.;
+const BALL_SPEED: f32 = 300.;
 const BALL_INITIAL_ANGLE: f32 = -90.;
 
 const LEFT_WALL_EDGE: f32 = -WINDOW_WIDTH / 2.;
@@ -29,11 +31,13 @@ const MAX_BOUNCE_ANGLE: f32 = 30.;
 const BRICK_ROWS: u8 = 4;
 const BRICK_COLS: u8 = 10;
 const BRICK_Y_GAP: f32 = 20.;
-const BRICK_X_GAP: f32 = 30.;
+const BRICK_X_GAP: f32 = 25.;
 
 const BRICK_WIDTH: f32 =
     (WINDOW_WIDTH - (BRICK_COLS as f32 + 1.) * BRICK_X_GAP) / (BRICK_COLS as f32);
 const BRICK_HEIGHT: f32 = 50.;
+
+const BALL_ANGLE_CORRECTION_MARGIN: f32 = 1. / 18. * PI; // 10 degrees
 
 fn main() {
     App::new()
@@ -55,6 +59,11 @@ fn main() {
                 handle_paddle_edges.after(apply_velocity),
                 handle_ball_edges.after(apply_velocity),
                 handle_paddle_ball_collision.after(apply_velocity),
+                handle_brick_ball_collision.after(apply_velocity),
+                correct_ball_angle
+                    .after(handle_ball_edges)
+                    .after(handle_paddle_ball_collision)
+                    .after(handle_brick_ball_collision),
             ),
         )
         .run();
@@ -190,6 +199,48 @@ fn handle_ball_edges(mut query: Query<(&mut Transform, &mut Velocity), With<Ball
     }
 }
 
+fn handle_brick_ball_collision(
+    mut commands: Commands,
+    mut ball_query: Query<(&Transform, &mut Velocity), With<Ball>>,
+    brick_query: Query<(Entity, &Transform), With<Brick>>,
+) {
+    let Ok((ball_transform, mut ball_velocity)) = ball_query.single_mut() else {
+        return;
+    };
+
+    let ball = BoundingCircle::new(ball_transform.translation.xy(), BALL_RADIUS);
+    for (brick_entity, brick_transform) in brick_query {
+        let brick = Aabb2d::new(
+            brick_transform.translation.xy(),
+            vec2(BRICK_WIDTH / 2., BRICK_HEIGHT / 2.),
+        );
+        if ball.intersects(&brick) {
+            println!(
+                "BALL {} -- {}",
+                ball_velocity.0.x, ball_transform.translation.x
+            );
+            println!("BRICK HIT {}", brick_transform.translation.x);
+            commands.entity(brick_entity).despawn();
+
+            let closest = brick.closest_point(ball.center);
+            let Vec2 { x: hit_x, y: hit_y } = ball.center - closest;
+            if hit_x.abs() > hit_y.abs() {
+                ball_velocity.0.x = if hit_x > 0. {
+                    ball_velocity.0.x.abs()
+                } else {
+                    -ball_velocity.0.x.abs()
+                };
+            } else {
+                ball_velocity.0.y = if hit_y > 0. {
+                    ball_velocity.0.y.abs()
+                } else {
+                    -ball_velocity.0.y.abs()
+                };
+            }
+        }
+    }
+}
+
 fn handle_paddle_ball_collision(
     mut ball_query: Query<(&Transform, &mut Velocity), With<Ball>>,
     paddle_query: Query<&Transform, (With<Paddle>, Without<Ball>)>,
@@ -223,6 +274,39 @@ fn handle_paddle_ball_collision(
         offset = offset.clamp(-1., 1.);
         let out_angle = offset.remap(-1., 1., 180. - MAX_BOUNCE_ANGLE, MAX_BOUNCE_ANGLE);
         ball_velocity.0 = Vec2::from_angle(out_angle.to_radians()) * BALL_SPEED;
+    }
+}
+
+fn correct_ball_angle(mut query: Query<&mut Velocity, With<Ball>>) {
+    let Ok(mut velocity) = query.single_mut() else {
+        return;
+    };
+
+    let current_angle = velocity.0.to_angle();
+    let Vec2 { x: curr_x, y: _y } = velocity.0;
+
+    let deg_90 = PI / 2.;
+
+    if deg_90 - BALL_ANGLE_CORRECTION_MARGIN <= current_angle
+        && current_angle <= deg_90 + BALL_ANGLE_CORRECTION_MARGIN
+    {
+        let new_angle = if curr_x >= 0. {
+            deg_90 - BALL_ANGLE_CORRECTION_MARGIN
+        } else {
+            deg_90 + BALL_ANGLE_CORRECTION_MARGIN
+        };
+        velocity.0 = Vec2::from_angle(new_angle) * BALL_SPEED;
+    }
+
+    if -deg_90 - BALL_ANGLE_CORRECTION_MARGIN <= current_angle
+        && current_angle <= -deg_90 + BALL_ANGLE_CORRECTION_MARGIN
+    {
+        let new_angle = if curr_x >= 0. {
+            -deg_90 + BALL_ANGLE_CORRECTION_MARGIN
+        } else {
+            -deg_90 - BALL_ANGLE_CORRECTION_MARGIN
+        };
+        velocity.0 = Vec2::from_angle(new_angle) * BALL_SPEED;
     }
 }
 
