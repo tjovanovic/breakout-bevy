@@ -50,6 +50,9 @@ enum GameState {
     Won,
 }
 
+#[derive(Resource)]
+struct Lives(u8);
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -61,6 +64,7 @@ fn main() {
             ..default()
         }))
         .init_state::<GameState>()
+        .insert_resource(Lives(3))
         .add_systems(Startup, (setup_camera, setup_bricks))
         .add_systems(
             OnEnter(GameState::Countdown),
@@ -72,12 +76,14 @@ fn main() {
         .add_systems(
             Update,
             (
+                check_win_condition.before(paddle_input),
                 paddle_input,
                 apply_velocity.after(paddle_input),
                 handle_paddle_edges.after(apply_velocity),
                 handle_ball_edges.after(apply_velocity),
                 handle_paddle_ball_collision.after(apply_velocity),
                 handle_brick_ball_collision.after(apply_velocity),
+                handle_ball_death.after(apply_velocity),
                 correct_ball_angle
                     .after(handle_ball_edges)
                     .after(handle_paddle_ball_collision)
@@ -225,16 +231,39 @@ fn handle_ball_edges(mut query: Query<(&mut Transform, &mut Velocity), With<Ball
         transform.translation.x = RIGHT_WALL_EDGE - BALL_RADIUS;
     }
 
-    let bottom_ball_edge = transform.translation.y - BALL_RADIUS;
-    if bottom_ball_edge <= BOTTOM_WALL_EDGE {
-        velocity.0.y = -velocity.0.y;
-        transform.translation.y = BOTTOM_WALL_EDGE + BALL_RADIUS;
-    }
-
     let top_ball_edge = transform.translation.y + BALL_RADIUS;
     if top_ball_edge >= TOP_WALL_EDGE {
         velocity.0.y = -velocity.0.y;
         transform.translation.y = TOP_WALL_EDGE - BALL_RADIUS;
+    }
+}
+
+fn handle_ball_death(
+    query: Query<&Transform, With<Ball>>,
+    mut lives: ResMut<Lives>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+) {
+    let Ok(transform) = query.single() else {
+        return;
+    };
+
+    let bottom_ball_edge = transform.translation.y - BALL_RADIUS;
+    if bottom_ball_edge <= BOTTOM_WALL_EDGE {
+        lives.0 -= 1;
+        if lives.0 == 0 {
+            next_game_state.set(GameState::GameOver);
+        } else {
+            next_game_state.set(GameState::Countdown);
+        }
+    }
+}
+
+fn check_win_condition(
+    query: Query<(), With<Brick>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+) {
+    if query.is_empty() {
+        next_game_state.set(GameState::Won);
     }
 }
 
