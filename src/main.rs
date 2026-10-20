@@ -14,14 +14,16 @@ const WINDOW_HEIGHT: f32 = 1080.;
 
 const PADDLE_WIDTH: f32 = 150.;
 const PADDLE_HEIGHT: f32 = 15.;
-const PADDLE_SPEED: f32 = 300.;
+const PADDLE_SPEED: f32 = 700.;
 const PADDLE_MARGIN_Y: f32 = 50.;
 const PADDLE_MARGIN_X: f32 = 30.;
 const PADDLE_MAX_X: f32 = WINDOW_WIDTH / 2. - PADDLE_WIDTH / 2. - PADDLE_MARGIN_X;
 
 const BALL_RADIUS: f32 = 15.;
-const BALL_SPEED: f32 = 300.;
+const BALL_SPEED: f32 = 700.;
 const BALL_INITIAL_ANGLE_RANGE: (f32, f32) = (-120., -60.);
+const BALL_ANGLE_CORRECTION_MARGIN: f32 = 1. / 18. * PI; // 10 degrees
+const BALL_INITIAL_Y_OFFSET: f32 = 200.;
 
 const LEFT_WALL_EDGE: f32 = -WINDOW_WIDTH / 2.;
 const RIGHT_WALL_EDGE: f32 = WINDOW_WIDTH / 2.;
@@ -39,7 +41,7 @@ const BRICK_WIDTH: f32 =
     (WINDOW_WIDTH - (BRICK_COLS as f32 + 1.) * BRICK_X_GAP) / (BRICK_COLS as f32);
 const BRICK_HEIGHT: f32 = 50.;
 
-const BALL_ANGLE_CORRECTION_MARGIN: f32 = 1. / 18. * PI; // 10 degrees
+const COUNTDOWN_TIMER_SECONDS: u8 = 3;
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 enum GameState {
@@ -53,6 +55,12 @@ enum GameState {
 #[derive(Resource)]
 struct Lives(u8);
 
+#[derive(Resource)]
+struct CountdownTimer(Timer);
+
+#[derive(Component)]
+struct CountdownText;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -65,14 +73,21 @@ fn main() {
         }))
         .init_state::<GameState>()
         .insert_resource(Lives(3))
+        .insert_resource(CountdownTimer(Timer::from_seconds(
+            COUNTDOWN_TIMER_SECONDS as f32,
+            TimerMode::Once,
+        )))
         .add_systems(Startup, (setup_camera, setup_bricks))
         .add_systems(
             OnEnter(GameState::Countdown),
             (
                 (despawn_ball_and_paddle, spawn_ball_and_paddle).chain(),
-                start_game,
+                spawn_countdown_text,
+                reset_timer,
             ),
         )
+        .add_systems(Update, countdown.run_if(in_state(GameState::Countdown)))
+        .add_systems(OnExit(GameState::Countdown), despawn_countdown_text)
         .add_systems(
             Update,
             (
@@ -98,8 +113,43 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn start_game(mut next_game_state: ResMut<NextState<GameState>>) {
-    next_game_state.set(GameState::Playing);
+fn countdown(
+    time: Res<Time>,
+    mut timer: ResMut<CountdownTimer>,
+    mut query: Query<&mut Text2d, With<CountdownText>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+) {
+    if let Ok(mut text) = query.single_mut() {
+        text.0 = timer.0.remaining_secs().ceil().to_string();
+    }
+
+    timer.0.tick(time.delta());
+    if timer.0.is_finished() {
+        next_game_state.set(GameState::Playing);
+    }
+}
+
+fn reset_timer(mut timer: ResMut<CountdownTimer>) {
+    timer.0.reset();
+}
+
+fn spawn_countdown_text(mut commands: Commands) {
+    commands.spawn((
+        Text2d::new(COUNTDOWN_TIMER_SECONDS.to_string()),
+        TextFont {
+            font_size: FontSize::Px(120.0),
+            ..Default::default()
+        },
+        TextColor(css::SKY_BLUE.into()),
+        CountdownText,
+    ));
+}
+
+fn despawn_countdown_text(mut commands: Commands, query: Query<Entity, With<CountdownText>>) {
+    let Ok(entity) = query.single() else {
+        return;
+    };
+    commands.entity(entity).despawn();
 }
 
 fn despawn_ball_and_paddle(
@@ -142,7 +192,10 @@ fn spawn_ball_and_paddle(
         Ball,
         Mesh2d(meshes.add(Circle::new(BALL_RADIUS))),
         MeshMaterial2d(materials.add(ColorMaterial::from_color(css::SKY_BLUE))),
-        Transform::default(),
+        Transform {
+            translation: vec3(0., BALL_INITIAL_Y_OFFSET, 0.),
+            ..default()
+        },
         Velocity(Vec2::from_angle(ball_initial_angle.to_radians()) * BALL_SPEED),
     ));
 }
