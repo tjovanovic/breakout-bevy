@@ -1,12 +1,13 @@
 use bevy::{prelude::*, window::WindowResolution};
 
-use bricks::BricksPlugin;
-use constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
-use game_sets::GameSetPlugin;
-use movement::MovementPlugin;
-use paddle::PaddlePlugin;
-
-use crate::{ball::BallPlugin, collision::CollisionPlugin, game_flow::GameFlowPlugin};
+use crate::ball::BallPlugin;
+use crate::bricks::BricksPlugin;
+use crate::collision::CollisionPlugin;
+use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
+use crate::game_flow::GameFlowPlugin;
+use crate::game_sets::GameSetPlugin;
+use crate::movement::MovementPlugin;
+use crate::paddle::PaddlePlugin;
 
 mod ball;
 mod bricks;
