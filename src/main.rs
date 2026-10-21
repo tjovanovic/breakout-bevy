@@ -43,9 +43,12 @@ const BRICK_HEIGHT: f32 = 50.;
 
 const COUNTDOWN_TIMER_SECONDS: u8 = 3;
 
+const LIVES_INIT: u8 = 3;
+
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 enum GameState {
     #[default]
+    Initialising,
     Countdown,
     Playing,
     GameOver,
@@ -75,12 +78,20 @@ fn main() {
             ..default()
         }))
         .init_state::<GameState>()
-        .insert_resource(Lives(3))
+        .insert_resource(Lives(LIVES_INIT))
         .insert_resource(CountdownTimer(Timer::from_seconds(
             COUNTDOWN_TIMER_SECONDS as f32,
             TimerMode::Once,
         )))
-        .add_systems(Startup, (setup_camera, setup_bricks))
+        .add_systems(Startup, setup_camera)
+        .add_systems(
+            OnEnter(GameState::Initialising),
+            (
+                (despawn_bricks, spawn_bricks).chain(),
+                start_countdown,
+                reset_lives,
+            ),
+        )
         .add_systems(
             OnEnter(GameState::Countdown),
             (
@@ -111,6 +122,10 @@ fn main() {
         )
         .add_systems(OnEnter(GameState::GameOver), spawn_end_message)
         .add_systems(OnEnter(GameState::Won), spawn_end_message)
+        .add_systems(
+            Update,
+            end_game_input.run_if(in_state(GameState::GameOver).or_else(in_state(GameState::Won))),
+        )
         .add_systems(OnExit(GameState::GameOver), despawn_end_message)
         .add_systems(OnExit(GameState::Won), despawn_end_message)
         .run();
@@ -232,7 +247,7 @@ fn spawn_ball_and_paddle(
     ));
 }
 
-fn setup_bricks(mut commands: Commands) {
+fn spawn_bricks(mut commands: Commands) {
     for row in 0..BRICK_ROWS {
         for col in 0..BRICK_COLS {
             let row = row as f32;
@@ -262,6 +277,12 @@ fn setup_bricks(mut commands: Commands) {
     }
 }
 
+fn despawn_bricks(mut commands: Commands, query: Query<Entity, With<Brick>>) {
+    for entity in query {
+        commands.entity(entity).despawn();
+    }
+}
+
 fn paddle_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Velocity, With<Paddle>>,
@@ -284,6 +305,23 @@ fn paddle_input(
     };
 
     paddle_velocity.0 = new_paddle_velocity;
+}
+
+fn start_countdown(mut next_game_state: ResMut<NextState<GameState>>) {
+    next_game_state.set(GameState::Countdown);
+}
+
+fn reset_lives(mut lives: ResMut<Lives>) {
+    lives.0 = LIVES_INIT;
+}
+
+fn end_game_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyR) {
+        next_game_state.set(GameState::Initialising);
+    }
 }
 
 fn apply_velocity(time: Res<Time>, mut query: Query<(&mut Transform, &Velocity)>) {
