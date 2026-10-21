@@ -6,13 +6,17 @@ use bevy::{
     prelude::*,
     window::WindowResolution,
 };
-
 use rand::RngExt;
 
-mod constants;
+use bricks::{BRICK_HEIGHT, BRICK_WIDTH, Brick, BricksPlugin};
 use constants::{
     BOTTOM_WALL_EDGE, LEFT_WALL_EDGE, RIGHT_WALL_EDGE, TOP_WALL_EDGE, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
+use game_flow::GameState;
+
+mod bricks;
+mod constants;
+mod game_flow;
 
 const LIVES_INIT: u8 = 3;
 
@@ -31,26 +35,7 @@ const BALL_INITIAL_Y_OFFSET: f32 = 200.;
 
 const MAX_BOUNCE_ANGLE: f32 = 30.;
 
-const BRICK_ROWS: u8 = 4;
-const BRICK_COLS: u8 = 10;
-const BRICK_Y_GAP: f32 = 20.;
-const BRICK_X_GAP: f32 = 25.;
-
-const BRICK_WIDTH: f32 =
-    (WINDOW_WIDTH - (BRICK_COLS as f32 + 1.) * BRICK_X_GAP) / (BRICK_COLS as f32);
-const BRICK_HEIGHT: f32 = 50.;
-
 const COUNTDOWN_TIMER_SECONDS: u8 = 3;
-
-#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
-enum GameState {
-    #[default]
-    Initialising,
-    Countdown,
-    Playing,
-    GameOver,
-    Won,
-}
 
 #[derive(Resource)]
 struct Lives(u8);
@@ -74,6 +59,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(BricksPlugin)
         .init_state::<GameState>()
         .insert_resource(Lives(LIVES_INIT))
         .insert_resource(CountdownTimer(Timer::from_seconds(
@@ -83,11 +69,7 @@ fn main() {
         .add_systems(Startup, setup_camera)
         .add_systems(
             OnEnter(GameState::Initialising),
-            (
-                (despawn_bricks, spawn_bricks).chain(),
-                start_countdown,
-                reset_lives,
-            ),
+            (start_countdown, reset_lives),
         )
         .add_systems(
             OnEnter(GameState::Countdown),
@@ -242,42 +224,6 @@ fn spawn_ball_and_paddle(
         },
         Velocity(Vec2::from_angle(ball_initial_angle.to_radians()) * BALL_SPEED),
     ));
-}
-
-fn spawn_bricks(mut commands: Commands) {
-    for row in 0..BRICK_ROWS {
-        for col in 0..BRICK_COLS {
-            let row = row as f32;
-            let col = col as f32;
-            let brick_x = -WINDOW_WIDTH / 2.
-                + (col + 1.) * BRICK_X_GAP
-                + col * BRICK_WIDTH
-                + BRICK_WIDTH / 2.;
-            let brick_y = WINDOW_HEIGHT / 2.
-                - (row + 1.) * BRICK_Y_GAP
-                - row * BRICK_HEIGHT
-                - BRICK_HEIGHT / 2.;
-
-            commands.spawn((
-                Brick,
-                Sprite {
-                    custom_size: Some(Vec2::new(BRICK_WIDTH, BRICK_HEIGHT)),
-                    color: css::INDIAN_RED.into(),
-                    ..default()
-                },
-                Transform {
-                    translation: vec3(brick_x, brick_y, 0.),
-                    ..default()
-                },
-            ));
-        }
-    }
-}
-
-fn despawn_bricks(mut commands: Commands, query: Query<Entity, With<Brick>>) {
-    for entity in query {
-        commands.entity(entity).despawn();
-    }
 }
 
 fn paddle_input(
@@ -496,6 +442,3 @@ struct Ball;
 
 #[derive(Component)]
 struct Velocity(Vec2);
-
-#[derive(Component)]
-struct Brick;
