@@ -1,3 +1,4 @@
+use crate::config::{BALL_RADIUS, BALL_SPEED};
 use crate::constants::{LEFT_WALL_EDGE, RIGHT_WALL_EDGE, TOP_WALL_EDGE};
 use crate::game_flow::GameState;
 use crate::game_sets::GameSet;
@@ -7,8 +8,6 @@ use bevy::prelude::*;
 use rand::RngExt;
 use std::f32::consts::PI;
 
-pub const BALL_RADIUS: f32 = 15.;
-pub const BALL_SPEED: f32 = 700.;
 const BALL_INITIAL_ANGLE_RANGE: (f32, f32) = (-120., -60.);
 const BALL_ANGLE_CORRECTION_MARGIN: f32 = 1. / 18. * PI; // 10 degrees
 const BALL_INITIAL_Y_OFFSET: f32 = 200.;

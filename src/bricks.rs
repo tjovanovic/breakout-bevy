@@ -1,11 +1,10 @@
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 
+use crate::config::{BRICK_COLS, BRICK_ROWS};
 use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::game_flow::GameState;
 
-const BRICK_ROWS: u8 = 4;
-const BRICK_COLS: u8 = 10;
 const BRICK_Y_GAP: f32 = 20.;
 const BRICK_X_GAP: f32 = 25.;
 

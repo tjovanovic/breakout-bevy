@@ -1,6 +1,7 @@
 use crate::{
-    ball::{BALL_RADIUS, BALL_SPEED, Ball},
+    ball::Ball,
     bricks::{BRICK_HEIGHT, BRICK_WIDTH, Brick},
+    config::{BALL_RADIUS, BALL_SPEED},
     game_sets::GameSet,
     movement::Velocity,
     paddle::{PADDLE_HEIGHT, PADDLE_WIDTH, Paddle},
