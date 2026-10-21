@@ -1,21 +1,20 @@
-use bevy::{
-    color::palettes::css,
-    math::bounding::{Aabb2d, BoundingCircle, IntersectsVolume},
-    prelude::*,
-    window::WindowResolution,
-};
+use bevy::{color::palettes::css, prelude::*, window::WindowResolution};
 
-use bricks::{BRICK_HEIGHT, BRICK_WIDTH, Brick, BricksPlugin};
+use bricks::{Brick, BricksPlugin};
 use constants::{BOTTOM_WALL_EDGE, WINDOW_HEIGHT, WINDOW_WIDTH};
 use game_flow::GameState;
 use game_sets::{GameSet, GameSetPlugin};
-use movement::{MovementPlugin, Velocity};
-use paddle::{PADDLE_HEIGHT, PADDLE_WIDTH, Paddle, PaddlePlugin};
+use movement::MovementPlugin;
+use paddle::PaddlePlugin;
 
-use crate::ball::{BALL_RADIUS, BALL_SPEED, Ball, BallPlugin};
+use crate::{
+    ball::{BALL_RADIUS, Ball, BallPlugin},
+    collision::CollisionPlugin,
+};
 
 mod ball;
 mod bricks;
+mod collision;
 mod constants;
 mod game_flow;
 mod game_sets;
@@ -23,9 +22,6 @@ mod movement;
 mod paddle;
 
 const LIVES_INIT: u8 = 3;
-
-const MAX_BOUNCE_ANGLE: f32 = 30.;
-
 const COUNTDOWN_TIMER_SECONDS: u8 = 3;
 
 #[derive(Resource)]
@@ -55,6 +51,7 @@ fn main() {
         .add_plugins(BricksPlugin)
         .add_plugins(PaddlePlugin)
         .add_plugins(BallPlugin)
+        .add_plugins(CollisionPlugin)
         .init_state::<GameState>()
         .insert_resource(Lives(LIVES_INIT))
         .insert_resource(CountdownTimer(Timer::from_seconds(
@@ -76,8 +73,6 @@ fn main() {
             Update,
             (
                 check_win_condition.in_set(GameSet::Outcome),
-                handle_paddle_ball_collision.in_set(GameSet::Collision),
-                handle_brick_ball_collision.in_set(GameSet::Collision),
                 handle_ball_death.in_set(GameSet::Outcome),
             ),
         )
@@ -203,78 +198,5 @@ fn check_win_condition(
 ) {
     if query.is_empty() {
         next_game_state.set(GameState::Won);
-    }
-}
-
-fn handle_brick_ball_collision(
-    mut commands: Commands,
-    mut ball_query: Query<(&Transform, &mut Velocity), With<Ball>>,
-    brick_query: Query<(Entity, &Transform), With<Brick>>,
-) {
-    let Ok((ball_transform, mut ball_velocity)) = ball_query.single_mut() else {
-        return;
-    };
-
-    let ball = BoundingCircle::new(ball_transform.translation.xy(), BALL_RADIUS);
-    for (brick_entity, brick_transform) in brick_query {
-        let brick = Aabb2d::new(
-            brick_transform.translation.xy(),
-            vec2(BRICK_WIDTH / 2., BRICK_HEIGHT / 2.),
-        );
-        if ball.intersects(&brick) {
-            commands.entity(brick_entity).despawn();
-
-            let closest = brick.closest_point(ball.center);
-            let Vec2 { x: hit_x, y: hit_y } = ball.center - closest;
-            if hit_x.abs() > hit_y.abs() {
-                ball_velocity.0.x = if hit_x > 0. {
-                    ball_velocity.0.x.abs()
-                } else {
-                    -ball_velocity.0.x.abs()
-                };
-            } else {
-                ball_velocity.0.y = if hit_y > 0. {
-                    ball_velocity.0.y.abs()
-                } else {
-                    -ball_velocity.0.y.abs()
-                };
-            }
-        }
-    }
-}
-
-fn handle_paddle_ball_collision(
-    mut ball_query: Query<(&Transform, &mut Velocity), With<Ball>>,
-    paddle_query: Query<&Transform, (With<Paddle>, Without<Ball>)>,
-) {
-    let Ok((ball_transform, mut ball_velocity)) = ball_query.single_mut() else {
-        return;
-    };
-
-    let Ok(paddle_transform) = paddle_query.single() else {
-        return;
-    };
-
-    if ball_velocity.0.y >= 0. {
-        // as the ball can remain inside the paddle for a few frames after flip
-        // we only change the velocity if the ball is going down
-        // to ensure we only do it once
-        return;
-    }
-
-    let paddle = Aabb2d::new(
-        paddle_transform.translation.xy(),
-        vec2(PADDLE_WIDTH / 2., PADDLE_HEIGHT / 2.),
-    );
-
-    let ball = BoundingCircle::new(ball_transform.translation.xy(), BALL_RADIUS);
-
-    if ball.intersects(&paddle) {
-        let mut offset =
-            (ball_transform.translation.x - paddle_transform.translation.x) / (PADDLE_WIDTH / 2.);
-
-        offset = offset.clamp(-1., 1.);
-        let out_angle = offset.remap(-1., 1., 180. - MAX_BOUNCE_ANGLE, MAX_BOUNCE_ANGLE);
-        ball_velocity.0 = Vec2::from_angle(out_angle.to_radians()) * BALL_SPEED;
     }
 }
