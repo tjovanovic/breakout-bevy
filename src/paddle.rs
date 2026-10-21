@@ -1,7 +1,7 @@
 use crate::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use crate::game_flow::GameState;
 use crate::game_sets::GameSet;
-use crate::movement::{Velocity, apply_velocity};
+use crate::movement::Velocity;
 
 use bevy::color::palettes::css;
 use bevy::prelude::*;
@@ -24,7 +24,6 @@ impl Plugin for PaddlePlugin {
             Update,
             (
                 handle_paddle_input.in_set(GameSet::Input),
-                apply_velocity.in_set(GameSet::Movement),
                 handle_paddle_edges.in_set(GameSet::Collision),
             ),
         );

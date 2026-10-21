@@ -14,7 +14,7 @@ use constants::{
 };
 use game_flow::GameState;
 use game_sets::{GameSet, GameSetPlugin};
-use movement::Velocity;
+use movement::{MovementPlugin, Velocity};
 use paddle::{PADDLE_HEIGHT, PADDLE_WIDTH, Paddle, PaddlePlugin};
 
 mod bricks;
@@ -59,6 +59,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(GameSetPlugin)
+        .add_plugins(MovementPlugin)
         .add_plugins(BricksPlugin)
         .add_plugins(PaddlePlugin)
         .init_state::<GameState>()
