@@ -13,19 +13,16 @@ use constants::{
     BOTTOM_WALL_EDGE, LEFT_WALL_EDGE, RIGHT_WALL_EDGE, TOP_WALL_EDGE, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 use game_flow::GameState;
+use movement::{Velocity, apply_velocity};
+use paddle::{PADDLE_HEIGHT, PADDLE_WIDTH, Paddle, PaddlePlugin};
 
 mod bricks;
 mod constants;
 mod game_flow;
+mod movement;
+mod paddle;
 
 const LIVES_INIT: u8 = 3;
-
-const PADDLE_WIDTH: f32 = 150.;
-const PADDLE_HEIGHT: f32 = 15.;
-const PADDLE_SPEED: f32 = 700.;
-const PADDLE_MARGIN_Y: f32 = 50.;
-const PADDLE_MARGIN_X: f32 = 30.;
-const PADDLE_MAX_X: f32 = WINDOW_WIDTH / 2. - PADDLE_WIDTH / 2. - PADDLE_MARGIN_X;
 
 const BALL_RADIUS: f32 = 15.;
 const BALL_SPEED: f32 = 700.;
@@ -60,6 +57,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(BricksPlugin)
+        .add_plugins(PaddlePlugin)
         .init_state::<GameState>()
         .insert_resource(Lives(LIVES_INIT))
         .insert_resource(CountdownTimer(Timer::from_seconds(
@@ -74,7 +72,7 @@ fn main() {
         .add_systems(
             OnEnter(GameState::Countdown),
             (
-                (despawn_ball_and_paddle, spawn_ball_and_paddle).chain(),
+                (despawn_ball, spawn_ball).chain(),
                 spawn_countdown_text,
                 reset_timer,
             ),
@@ -84,10 +82,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                check_win_condition.before(paddle_input),
-                paddle_input,
-                apply_velocity.after(paddle_input),
-                handle_paddle_edges.after(apply_velocity),
+                check_win_condition.before(apply_velocity),
                 handle_ball_edges.after(apply_velocity),
                 handle_paddle_ball_collision.after(apply_velocity),
                 handle_brick_ball_collision.after(apply_velocity),
@@ -178,38 +173,17 @@ fn despawn_countdown_text(mut commands: Commands, query: Query<Entity, With<Coun
     commands.entity(entity).despawn();
 }
 
-fn despawn_ball_and_paddle(
-    mut commands: Commands,
-    query: Query<Entity, Or<(With<Ball>, With<Paddle>)>>,
-) {
+fn despawn_ball(mut commands: Commands, query: Query<Entity, With<Ball>>) {
     for entity in query {
         commands.entity(entity).despawn();
     }
 }
 
-fn spawn_ball_and_paddle(
+fn spawn_ball(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn((
-        Paddle,
-        Sprite {
-            custom_size: Some(Vec2::new(PADDLE_WIDTH, PADDLE_HEIGHT)),
-            color: css::INDIAN_RED.into(),
-            ..default()
-        },
-        Transform {
-            translation: vec3(
-                0.,
-                PADDLE_MARGIN_Y + PADDLE_HEIGHT / 2. - WINDOW_HEIGHT / 2.,
-                0.,
-            ),
-            ..default()
-        },
-        Velocity(Vec2::ZERO),
-    ));
-
     let mut rng = rand::rng();
     let ball_initial_angle =
         rng.random_range(BALL_INITIAL_ANGLE_RANGE.0..=BALL_INITIAL_ANGLE_RANGE.1);
@@ -224,30 +198,6 @@ fn spawn_ball_and_paddle(
         },
         Velocity(Vec2::from_angle(ball_initial_angle.to_radians()) * BALL_SPEED),
     ));
-}
-
-fn paddle_input(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Velocity, With<Paddle>>,
-) {
-    let is_left_pressed = keyboard.any_pressed([KeyCode::KeyA, KeyCode::ArrowLeft]);
-    let is_right_pressed = keyboard.any_pressed([KeyCode::KeyD, KeyCode::ArrowRight]);
-
-    let mut new_paddle_velocity = Vec2::ZERO;
-
-    if is_left_pressed {
-        new_paddle_velocity.x -= PADDLE_SPEED;
-    }
-
-    if is_right_pressed {
-        new_paddle_velocity.x += PADDLE_SPEED;
-    }
-
-    let Ok(mut paddle_velocity) = query.single_mut() else {
-        return;
-    };
-
-    paddle_velocity.0 = new_paddle_velocity;
 }
 
 fn start_countdown(mut next_game_state: ResMut<NextState<GameState>>) {
@@ -265,19 +215,6 @@ fn end_game_input(
     if keyboard.just_pressed(KeyCode::KeyR) {
         next_game_state.set(GameState::Initialising);
     }
-}
-
-fn apply_velocity(time: Res<Time>, mut query: Query<(&mut Transform, &Velocity)>) {
-    for (mut transform, velocity) in &mut query {
-        transform.translation += velocity.0.extend(0.) * time.delta_secs();
-    }
-}
-
-fn handle_paddle_edges(mut query: Query<&mut Transform, With<Paddle>>) {
-    let Ok(mut transform) = query.single_mut() else {
-        return;
-    };
-    transform.translation.x = transform.translation.x.clamp(-PADDLE_MAX_X, PADDLE_MAX_X);
 }
 
 fn handle_ball_edges(mut query: Query<(&mut Transform, &mut Velocity), With<Ball>>) {
@@ -435,10 +372,4 @@ fn correct_ball_angle(mut query: Query<&mut Velocity, With<Ball>>) {
 }
 
 #[derive(Component)]
-struct Paddle;
-
-#[derive(Component)]
 struct Ball;
-
-#[derive(Component)]
-struct Velocity(Vec2);
