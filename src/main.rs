@@ -61,6 +61,9 @@ struct CountdownTimer(Timer);
 #[derive(Component)]
 struct CountdownText;
 
+#[derive(Component)]
+struct EndText;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -106,7 +109,36 @@ fn main() {
             )
                 .run_if(in_state(GameState::Playing)),
         )
+        .add_systems(OnEnter(GameState::GameOver), spawn_end_message)
+        .add_systems(OnEnter(GameState::Won), spawn_end_message)
+        .add_systems(OnExit(GameState::GameOver), despawn_end_message)
+        .add_systems(OnExit(GameState::Won), despawn_end_message)
         .run();
+}
+
+fn spawn_end_message(mut commands: Commands, state: Res<State<GameState>>) {
+    let message = match state.get() {
+        GameState::GameOver => "Game Over",
+        GameState::Won => "Victory!",
+        _ => return,
+    };
+
+    commands.spawn((
+        Text2d::new(message),
+        TextFont {
+            font_size: FontSize::Px(120.0),
+            ..Default::default()
+        },
+        TextColor(css::SKY_BLUE.into()),
+        EndText,
+    ));
+}
+
+fn despawn_end_message(mut commands: Commands, query: Query<Entity, With<EndText>>) {
+    let Ok(entity) = query.single() else {
+        return;
+    };
+    commands.entity(entity).despawn();
 }
 
 fn setup_camera(mut commands: Commands) {
