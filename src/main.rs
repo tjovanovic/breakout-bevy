@@ -13,12 +13,14 @@ use constants::{
     BOTTOM_WALL_EDGE, LEFT_WALL_EDGE, RIGHT_WALL_EDGE, TOP_WALL_EDGE, WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 use game_flow::GameState;
-use movement::{Velocity, apply_velocity};
+use game_sets::{GameSet, GameSetPlugin};
+use movement::Velocity;
 use paddle::{PADDLE_HEIGHT, PADDLE_WIDTH, Paddle, PaddlePlugin};
 
 mod bricks;
 mod constants;
 mod game_flow;
+mod game_sets;
 mod movement;
 mod paddle;
 
@@ -56,6 +58,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(GameSetPlugin)
         .add_plugins(BricksPlugin)
         .add_plugins(PaddlePlugin)
         .init_state::<GameState>()
@@ -82,17 +85,13 @@ fn main() {
         .add_systems(
             Update,
             (
-                check_win_condition.before(apply_velocity),
-                handle_ball_edges.after(apply_velocity),
-                handle_paddle_ball_collision.after(apply_velocity),
-                handle_brick_ball_collision.after(apply_velocity),
-                handle_ball_death.after(apply_velocity),
-                correct_ball_angle
-                    .after(handle_ball_edges)
-                    .after(handle_paddle_ball_collision)
-                    .after(handle_brick_ball_collision),
-            )
-                .run_if(in_state(GameState::Playing)),
+                check_win_condition.in_set(GameSet::Outcome),
+                handle_ball_wall_collision.in_set(GameSet::Collision),
+                handle_paddle_ball_collision.in_set(GameSet::Collision),
+                handle_brick_ball_collision.in_set(GameSet::Collision),
+                handle_ball_death.in_set(GameSet::Outcome),
+                correct_ball_angle.in_set(GameSet::Correction),
+            ),
         )
         .add_systems(OnEnter(GameState::GameOver), spawn_end_message)
         .add_systems(OnEnter(GameState::Won), spawn_end_message)
@@ -217,7 +216,7 @@ fn end_game_input(
     }
 }
 
-fn handle_ball_edges(mut query: Query<(&mut Transform, &mut Velocity), With<Ball>>) {
+fn handle_ball_wall_collision(mut query: Query<(&mut Transform, &mut Velocity), With<Ball>>) {
     let Ok((mut transform, mut velocity)) = query.single_mut() else {
         return;
     };
