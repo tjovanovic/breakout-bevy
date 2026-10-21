@@ -9,8 +9,12 @@ use bevy::{
 
 use rand::RngExt;
 
-const WINDOW_WIDTH: f32 = 1920.;
-const WINDOW_HEIGHT: f32 = 1080.;
+mod constants;
+use constants::{
+    BOTTOM_WALL_EDGE, LEFT_WALL_EDGE, RIGHT_WALL_EDGE, TOP_WALL_EDGE, WINDOW_HEIGHT, WINDOW_WIDTH,
+};
+
+const LIVES_INIT: u8 = 3;
 
 const PADDLE_WIDTH: f32 = 150.;
 const PADDLE_HEIGHT: f32 = 15.;
@@ -25,11 +29,6 @@ const BALL_INITIAL_ANGLE_RANGE: (f32, f32) = (-120., -60.);
 const BALL_ANGLE_CORRECTION_MARGIN: f32 = 1. / 18. * PI; // 10 degrees
 const BALL_INITIAL_Y_OFFSET: f32 = 200.;
 
-const LEFT_WALL_EDGE: f32 = -WINDOW_WIDTH / 2.;
-const RIGHT_WALL_EDGE: f32 = WINDOW_WIDTH / 2.;
-const BOTTOM_WALL_EDGE: f32 = -WINDOW_HEIGHT / 2.;
-const TOP_WALL_EDGE: f32 = WINDOW_HEIGHT / 2.;
-
 const MAX_BOUNCE_ANGLE: f32 = 30.;
 
 const BRICK_ROWS: u8 = 4;
@@ -42,8 +41,6 @@ const BRICK_WIDTH: f32 =
 const BRICK_HEIGHT: f32 = 50.;
 
 const COUNTDOWN_TIMER_SECONDS: u8 = 3;
-
-const LIVES_INIT: u8 = 3;
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 enum GameState {
